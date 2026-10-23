@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S-IK Barcode Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 25px auto;
+      padding: 16px;
+      background: #f3f6fa;
+      color: #172033;
+    }
+    h2 { color: #16365c; }
+    button, input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 13px;
+      margin: 8px 0;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      border: 0;
+      background: #174ea6;
+      color: white;
+      font-weight: bold;
+    }
+    input { border: 1px solid #bbb; }
+    #reader {
+      width: 100%;
+      margin-top: 12px;
+    }
+    #status {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h2>S-IK Barcode Scanner</h2>
+  <p>Arahkan kamera ke QR Code atau barcode sparepart.</p>
+
+  <button id="startBtn">BUKA KAMERA</button>
+  <div id="reader"></div>
+
+  <label for="result">Hasil Code Number</label>
+  <input id="result" placeholder="Hasil scan akan muncul di sini">
+
+  <button id="copyBtn">SALIN CODE NUMBER</button>
+  <div id="status">Siap digunakan.</div>
+
+  <script>
+    let scanner = null;
+    let running = false;
+    let starting = false;
+
+    const status = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const result = document.getElementById('result');
+
+    startBtn.addEventListener('click', async () => {
+      if (starting || running) return;
+
+      starting = true;
+      startBtn.disabled = true;
+      status.textContent = 'Meminta akses kamera...';
+
+      try {
+        if (!window.Html5Qrcode) {
+          throw new Error('Library scanner gagal dimuat. Periksa koneksi internet.');
+        }
+
+        scanner = new Html5Qrcode('reader');
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 160 } },
+          async (decodedText) => {
+            result.value = decodedText.trim();
+            status.textContent = 'Scan berhasil! Code Number siap disalin.';
+
+            if (scanner && running) {
+              running = false;
+              try {
+                await scanner.stop();
+              } catch (e) {
+                console.warn(e);
+              }
+            }
+
+            startBtn.disabled = false;
+            startBtn.textContent = 'SCAN LAGI';
+          },
+          () => {}
+        );
+
+        running = true;
+        status.textContent = 'Kamera aktif. Arahkan ke QR/barcode.';
+      } catch (err) {
+        status.textContent = 'Kamera gagal dibuka: ' +
+          (err.message || String(err));
+        console.error(err);
+
+        if (scanner) {
+          try { scanner.clear(); } catch (e) {}
+          scanner = null;
+        }
+      } finally {
+        starting = false;
+        startBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      if (!result.value) {
+        status.textContent = 'Belum ada Code Number untuk disalin.';
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(result.value);
+        status.textContent = 'Code Number berhasil disalin. Tempelkan ke S-IK.';
+      } catch (e) {
+        result.select();
+        status.textContent = 'Pilih dan salin Code Number secara manual.';
+      }
+    });
+  </script>
+</body>
+</html>

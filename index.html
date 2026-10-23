@@ -38,20 +38,28 @@ startBtn.addEventListener('click', async()=>{
    decodedText=>{
     const code=String(decodedText||'').trim();if(!code)return;
     const now=Date.now();
-    if(code!==lastSeenCode){lastSeenCode=code;lastSeenAt=now;armed=true;}
-    else if(now-lastSeenAt>900){armed=true;}
-    lastSeenAt=now;
+    // New/different code is accepted immediately. Same code is accepted again
+    // only after it has disappeared from camera detections for a short interval.
+    if(code!==lastSeenCode){
+      lastSeenCode=code;
+      lastSeenAt=now;
+      armed=true;
+    } else {
+      lastSeenAt=now;
+    }
     if(!armed)return;
     armed=false;result.value=code;
     if(window.opener&&!window.opener.closed){
-      window.opener.postMessage({type:'SIK_BARCODE_SCAN',code},'https://script.google.com');
-      status.textContent='Terkirim ke S-IK: '+code+'\nKamera tetap aktif. Arahkan ke barcode berikutnya.';
+      // Apps Script Web App can run on a googleusercontent.com origin after redirect.
+      // The receiver validates event.origin against the exact GitHub Pages origin.
+      window.opener.postMessage({type:'SIK_BARCODE_SCAN',code},'*');
+      status.textContent='Pesan scan dikirim: '+code+'\nJika belum masuk keranjang, pastikan Web App S-IK tetap terbuka dari tombol Buka Scanner.';
     }else{
       status.textContent='Terbaca: '+code+'\nS-IK tidak terhubung. Buka scanner dari tombol Buka Scanner di Web App.';
     }
    },
    ()=>{
-    if(lastSeenCode&&Date.now()-lastSeenAt>900){lastSeenCode='';armed=true;}
+    if(lastSeenCode&&Date.now()-lastSeenAt>650){lastSeenCode='';armed=true;}
    });
   running=true;status.textContent='Kamera aktif. Barcode akan otomatis dikirim ke S-IK.';startBtn.textContent='KAMERA AKTIF';
  }catch(err){
